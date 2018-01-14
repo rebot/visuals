@@ -1,19 +1,38 @@
+import time
 import numpy as np
+import matplotlib.pyplot as plt
 from pyaudio import PyAudio, paInt16
 
-RATE = 44100 # time resolution of the recording device (Hz)
+RATE = 48000 # time resolution of the recording device (Hz)
 CHUNK = int(RATE/20) # RATE / number of updates per second)
 
-p = PyAudio() # start the PyAudio class
-stream = p.open(format=paInt16, channels=1, rate=RATE, input=True, frames_per_buffer=CHUNK) # uses default input device
+def soundplot(stream):
+    t = time.time()
+    data = np.fromstring(stream.read(CHUNK, exception_on_overflow = False), dtype=np.int16)
+    data = data * np.hanning(len(data)) # smooth the FFT by windowing data
+    fft = abs(np.fft.fft(data).real)
+    fft = fft[:int(len(fft)/2)] # keep only first half
 
-# create a numpy array holding a single read of audio data
-for i in range(int(10*44100/1024)): 
-    data = np.fromstring(stream.read(CHUNK), dtype=np.int16)
-    peak = np.average(np.abs(data))*2
-    bars = "#"*int(50*peak/2**16)
-    print("%04d %05d %s" % (i, peak, bars))
+    plt.plot(fft)
+    plt.xlabel('Time (s)')
+    plt.ylabel('Intensity')
+    plt.title('Realtime Audio Visualisation')
 
-stream.stop_stream()
-stream.close()
-p.terminate()
+    #plt.ylim([-2**16,2**16])
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('wave.png')
+
+    plt.close('all')
+
+if __name__ == "__main__":
+    p = PyAudio() # start the PyAudio class
+    stream = p.open(format=paInt16, channels=1, rate=RATE, input=True, frames_per_buffer=CHUNK) # uses default input device
+
+    # create a numpy array holding a single read of audio data
+    for i in range(int(20*RATE/CHUNK)):
+        soundplot(stream)
+
+    stream.stop_stream()
+    stream.close()
+    p.terminate()
