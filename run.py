@@ -1,38 +1,57 @@
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import animation, rc
 from pyaudio import PyAudio, paInt16
 
-RATE = 48000 # time resolution of the recording device (Hz)
-CHUNK = int(RATE/20) # RATE / number of updates per second)
+RATE = 48000  # time resolution of the recording device (Hz)
+CHUNK = int(RATE / 20)  # RATE / number of updates per second)
 
-def soundplot(stream):
-    t = time.time()
-    data = np.fromstring(stream.read(CHUNK, exception_on_overflow = False), dtype=np.int16)
-    data = data * np.hanning(len(data)) # smooth the FFT by windowing data
-    fft = abs(np.fft.fft(data).real)
-    fft = fft[:int(len(fft)/2)] # keep only first half
 
-    plt.plot(fft)
-    plt.xlabel('Time (s)')
-    plt.ylabel('Intensity')
-    plt.title('Realtime Audio Visualisation')
+class Microphone():
 
-    #plt.ylim([-2**16,2**16])
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig('wave.png')
+    def __init__(self):
+        plt.xlabel('Time (s)')
+        plt.ylabel('Intensity')
+        plt.title('Realtime Audio Visualisation')
+        plt.ylim([0, 2**16])
+        plt.grid(True)
 
-    plt.close('all')
+    def __call__(self, stream):
+        data = np.fromstring(stream.read(
+            CHUNK, exception_on_overflow=False), dtype=np.int16)
+        data = data * np.hanning(len(data))
+        fft = abs(np.fft.fft(data).real)
+        fft = fft[:int(len(fft) / 2)]
+        return fft
+
+
+def animate(fft):
+    ax.clear()
+    return ax.plot(fft, '-')
+
+def frames(stream):
+    while True:
+        yield microphone(stream)
 
 if __name__ == "__main__":
-    p = PyAudio() # start the PyAudio class
-    stream = p.open(format=paInt16, channels=1, rate=RATE, input=True, frames_per_buffer=CHUNK) # uses default input device
+    pa = PyAudio()
+    stream = pa.open(format=paInt16,
+                     channels=1,
+                     rate=RATE,
+                     input=True,
+                     frames_per_buffer=CHUNK)
 
-    # create a numpy array holding a single read of audio data
-    for i in range(int(20*RATE/CHUNK)):
-        soundplot(stream)
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    microphone = Microphone()
+    anim = animation.FuncAnimation(
+        fig, animate, frames=frames(stream), interval=10)
+    plt.show()
 
-    stream.stop_stream()
-    stream.close()
-    p.terminate()
+    # for i in range(int(20*RATE/CHUNK)):
+    #    soundplot(stream)
+
+    # stream.stop_stream()
+    # stream.close()
+    # pa.terminate()
