@@ -1,3 +1,4 @@
+import time
 from pyaudio import PyAudio, paFloat32
 
 RATE = 48000
@@ -8,12 +9,11 @@ pa = PyAudio()
 stream = pa.open(format = paFloat32,
                  channels = 1,
                  rate = RATE,
-                 input = True,
-                 frames_per_buffer = CHUNK,
-                 stream_callback = callback)
+                 output = True,
+                 frames_per_buffer = CHUNK)
 
 while stream.is_active():
-    sleep(0.1)
+    time.sleep(0.1)
 
 stream.close()
 pa.terminate()

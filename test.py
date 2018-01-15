@@ -1,32 +1,70 @@
-"""
-=================
-An animated image
-=================
-
-This example demonstrates how to animate an image.
-"""
+import time
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
+from matplotlib import animation, rc
+from pyaudio import PyAudio, paInt16, paFloat32
+from PyQt5 import QtWidgets
 
-fig = plt.figure()
+RATE = 48000  # time resolution of the recording device (Hz)
+CHUNK = int(RATE / 20)  # RATE / number of updates per second)
 
+plt.style.use('dark_background')
+mpl.rcParams['toolbar'] = 'None'
 
-def f(x, y):
-    return np.sin(x) + np.cos(y)
+class Microphone():
 
-x = np.linspace(0, 2 * np.pi, 120)
-y = np.linspace(0, 2 * np.pi, 100).reshape(-1, 1)
+    def __init__(self):
+        pass
 
-im = plt.imshow(f(x, y), animated=True)
+    def __call__(self, stream):
+        data = np.fromstring(stream.read(
+            CHUNK, exception_on_overflow=False), dtype=np.int16)
+        data = data * np.hanning(len(data))
+        fft = np.fft.rfft(data)
+        fft[50:] = 0
+        data = np.fft.irfft(fft)
+        return data, np.amax(data)
 
+def init():
+    ax.axis('off')
 
-def updatefig(*args):
-    global x, y
-    x += np.pi / 15.
-    y += np.pi / 20.
-    im.set_array(f(x, y))
-    return im,
+def animate(args):
+    _, ymax = ax.get_ylim()
+    ax.clear()
+    ax.axis('off')
+    if args[1] > ymax:
+        ax.set_ylim([-args[1], args[1]])
+    else:
+        ax.set_ylim([-0.9 * ymax, 0.9 * ymax])
+    return ax.plot(args[0])
 
-ani = animation.FuncAnimation(fig, updatefig, interval=50, blit=True)
-plt.show()
+def frames(stream):
+    while True:
+        yield microphone(stream)
+
+if __name__ == "__main__":
+    pa = PyAudio()
+    stream = pa.open(format=paInt16,
+                     channels=1,
+                     rate=RATE,
+                     input=True,
+                     frames_per_buffer=CHUNK)
+
+    fig = plt.figure()
+    ax = plt.Axes(fig, [0.15, 0.1, 0.7, 0.8])
+    fig.add_axes(ax)
+    microphone = Microphone()
+    anim = animation.FuncAnimation(
+        fig, animate, frames=frames(stream), interval=100, init_func=init)
+    plt.show()
+
+    # for i in range(int(20*RATE/CHUNK)):
+    #    soundplot(stream)
+
+    # stream.stop_stream()
+    # stream.close()
+    # pa.terminate()
+
+# REF: https://stackoverflow.com/questions/34376656/matplotlib-create-real-time-animated-graph
+# REF: https://www.swharden.com/wp/2016-07-19-realtime-audio-visualization-in-python/

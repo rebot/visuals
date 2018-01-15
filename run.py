@@ -1,5 +1,6 @@
 import time
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import animation, rc
 from pyaudio import PyAudio, paInt16
@@ -7,15 +8,13 @@ from pyaudio import PyAudio, paInt16
 RATE = 48000  # time resolution of the recording device (Hz)
 CHUNK = int(RATE / 20)  # RATE / number of updates per second)
 
+plt.style.use('dark_background')
+mpl.rcParams['toolbar'] = 'None'
 
 class Microphone():
 
     def __init__(self):
-        plt.xlabel('Time (s)')
-        plt.ylabel('Intensity')
-        plt.title('Realtime Audio Visualisation')
-        plt.ylim([0, 2**16])
-        plt.grid(True)
+        pass
 
     def __call__(self, stream):
         data = np.fromstring(stream.read(
@@ -23,12 +22,20 @@ class Microphone():
         data = data * np.hanning(len(data))
         fft = abs(np.fft.fft(data).real)
         fft = fft[:int(len(fft) / 2)]
-        return fft
+        return fft, np.amax(fft)
 
+def init():
+    ax.axis('off')
 
-def animate(fft):
+def animate(args):
+    _, ymax = ax.get_ylim()
     ax.clear()
-    return ax.plot(fft, '-')
+    ax.axis('off')
+    if args[1] > ymax:
+        ax.set_ylim([0, args[1]])
+    else:
+        ax.set_ylim([0, 0.9 * ymax])
+    return ax.plot(args[0])
 
 def frames(stream):
     while True:
@@ -43,10 +50,11 @@ if __name__ == "__main__":
                      frames_per_buffer=CHUNK)
 
     fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
+    ax = plt.Axes(fig, [0.15, 0.15, 0.7, 0.7])
+    fig.add_axes(ax)
     microphone = Microphone()
     anim = animation.FuncAnimation(
-        fig, animate, frames=frames(stream), interval=10)
+        fig, animate, frames=frames(stream), interval=100, init_func=init)
     plt.show()
 
     # for i in range(int(20*RATE/CHUNK)):
