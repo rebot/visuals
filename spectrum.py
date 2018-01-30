@@ -56,7 +56,7 @@ if __name__ == "__main__":
     fig.add_axes(ax)
     microphone = Microphone()
     anim = animation.FuncAnimation(
-        fig, animate, frames=frames(stream), interval=100, init_func=init)
+        fig, animate, frames=frames(stream), interval=10, init_func=init)
     plt.show()
 
     # for i in range(int(20*RATE/CHUNK)):
